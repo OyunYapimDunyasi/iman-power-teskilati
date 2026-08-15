@@ -5,8 +5,8 @@ import { IgApiClient } from "instagram-private-api";
 // ==========================================
 // 0. INSTAGRAM GİRİŞ BİLGİLERİNİ BURAYA YAZ
 // ==========================================
-const IG_USERNAME = "detayli_bilgi3"; // Instagram Kullanıcı Adın
-const IG_PASSWORD = "BurayaSifreniYaz";   // Instagram Şifren
+const IG_USERNAME = "anlik_detayli_bilgi3"; // Instagram Kullanıcı Adın
+const IG_PASSWORD = "imanpower31sok";   // Instagram Şifren
 
 // ==========================================
 // 1. FIREBASE VERİTABANI YAPILANDIRMASI
