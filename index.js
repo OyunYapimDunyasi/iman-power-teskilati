@@ -3,6 +3,12 @@ import { getDatabase, ref, get, child, set } from "firebase/database";
 import { IgApiClient } from "instagram-private-api";
 
 // ==========================================
+// 0. INSTAGRAM GİRİŞ BİLGİLERİNİ BURAYA YAZ
+// ==========================================
+const IG_USERNAME = "detayli_bilgi3"; // Instagram Kullanıcı Adın
+const IG_PASSWORD = "BurayaSifreniYaz";   // Instagram Şifren
+
+// ==========================================
 // 1. FIREBASE VERİTABANI YAPILANDIRMASI
 // ==========================================
 const firebaseConfig = {
@@ -57,15 +63,12 @@ const aiBrain = {
   }
 };
 
-// Diziden rastgele eleman seçici
 function getRandomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Kendi AI Yanıt Üretici Fonksiyonumuz
 function customAIGenerateReply(userComment) {
   const text = userComment.toLowerCase().trim();
-
   let category = "default";
 
   if (aiBrain.greetings.some(word => text.includes(word))) {
@@ -86,14 +89,12 @@ function customAIGenerateReply(userComment) {
 // ==========================================
 const ig = new IgApiClient();
 
-// Yorumun daha önce yanıtlanıp yanıtlanmadığını Firebase'den kontrol etme
 async function isCommentReplied(commentId) {
   const dbRef = ref(db);
   const snapshot = await get(child(dbRef, `replied_comments/${commentId}`));
   return snapshot.exists();
 }
 
-// Yanıtlanan yorumu Firebase'e kaydetme
 async function markCommentAsReplied(commentId, commentText, replyText) {
   await set(ref(db, `replied_comments/${commentId}`), {
     text: commentText,
@@ -102,9 +103,7 @@ async function markCommentAsReplied(commentId, commentText, replyText) {
   });
 }
 
-// 30 sn - 1 dk arasında rastgele gecikmeyle yorum gönderme
 function scheduleReply(commentId, mediaId, commentText) {
-  // 30.000 ms (30sn) ile 60.000 ms (1dk) arasında rastgele gecikme
   const delayMs = Math.floor(Math.random() * (60000 - 30000 + 1)) + 30000;
 
   console.log(`[+] Yorum algılandı: "${commentText}"`);
@@ -112,20 +111,17 @@ function scheduleReply(commentId, mediaId, commentText) {
 
   setTimeout(async () => {
     try {
-      // 1. Kendi AI motorumuzla yanıt üret
       const aiReply = customAIGenerateReply(commentText);
       console.log(`[🤖 AI Yanıtı]: ${aiReply}`);
 
-      // 2. Instagram'a yanıt at
       await ig.media.comment({
         mediaId: mediaId,
         text: aiReply,
         replyToCommentId: commentId
       });
 
-      // 3. Veritabanına kaydet
       await markCommentAsReplied(commentId, commentText, aiReply);
-      console.log(`[✔] Yanıt başarıyla Instagram'a gönderildi ve Firebase'e kaydedildi!\n`);
+      console.log(`[✔] Yanıt gönderildi ve Firebase'e kaydedildi!\n`);
 
     } catch (error) {
       console.error(`[X] Yorum gönderilirken hata oluştu:`, error.message);
@@ -134,17 +130,15 @@ function scheduleReply(commentId, mediaId, commentText) {
 }
 
 // ==========================================
-// 4. ANA DÖNGÜ VE KONTROL
+// 4. ANA DÖNGÜ VE BAŞLATMA
 // ==========================================
 async function checkNewComments() {
   try {
-    // Son gönderileri al
     const userFeed = ig.feed.user(ig.state.cookieUserId);
     const posts = await userFeed.items();
 
     if (posts.length === 0) return;
 
-    // En son paylaşılan gönderiyi kontrol et
     const latestPost = posts[0];
     const commentsFeed = ig.feed.mediaComments(latestPost.id);
     const commentsResponse = await commentsFeed.items();
@@ -153,10 +147,7 @@ async function checkNewComments() {
       const alreadyReplied = await isCommentReplied(comment.pk);
 
       if (!alreadyReplied) {
-        // Mükerrer zamanlama olmaması için hemen veritabanına taslak olarak işaretle
         await markCommentAsReplied(comment.pk, comment.text, "PENDING");
-        
-        // Zamanlayıcıya ekle
         scheduleReply(comment.pk, latestPost.id, comment.text);
       }
     }
@@ -165,18 +156,17 @@ async function checkNewComments() {
   }
 }
 
-// Uygulamayı Başlatma
 async function startBot() {
-  // Instagram Kullanıcı Adı ve Şifren
-  ig.state.generateDevice("INSTAGRAM_KULLANICI_ADI");
-  await ig.account.login("INSTAGRAM_KULLANICI_ADI", "INSTAGRAM_SIFRESI");
-  console.log("[➔] Instagram hesabına başarıyla giriş yapıldı.");
+  try {
+    ig.state.generateDevice(IG_USERNAME);
+    await ig.account.login(IG_USERNAME, IG_PASSWORD);
+    console.log(`[➔] ${IG_USERNAME} hesabına başarıyla giriş yapıldı! Bot aktif.`);
 
-  // Her 2 dakikada bir yeni yorumları denetle
-  setInterval(checkNewComments, 2 * 60 * 1000);
-  
-  // İlk çalıştırma
-  checkNewComments();
+    setInterval(checkNewComments, 2 * 60 * 1000);
+    checkNewComments();
+  } catch (error) {
+    console.error("[X] Giriş yapılırken hata oluştu:", error.message);
+  }
 }
 
 startBot();
